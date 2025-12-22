@@ -1,0 +1,9 @@
+{
+  "name": "RD-03 Presence Radar",
+  "version": "1.0.0",
+  "author": "Mohamed Eid",
+  "description": "ESPHome component for RD-03 mmWave presence radar",
+  "dependencies": ["uart"],
+  "codeowners": ["@MohamedEid"],
+  "documentation": "https://github.com/MohamedEid/RD-03_presence_radar"
+}
