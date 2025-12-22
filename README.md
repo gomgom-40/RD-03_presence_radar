@@ -34,12 +34,13 @@ binary_sensor:
 sensor:
   - platform: RD_03_presence_radar
     name: "Target Distance"
-Config Options
-Option	Description
-min_range	Minimum valid distance (cm)
-max_range	Maximum valid distance (cm)
-sensitivity	Sensitivity level 1–5
-max_absence	Timeout before auto OFF
+
+#Config Options
+#Option	Description
+#min_range	Minimum valid distance (cm)
+#max_range	Maximum valid distance (cm)
+#sensitivity	Sensitivity level 1–5
+#max_absence	Timeout before auto OFF
 
 Author
 Mohamed Eid
