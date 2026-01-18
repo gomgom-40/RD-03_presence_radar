@@ -84,7 +84,7 @@ This makes trying the project super easy – just flash and add to Home Assistan
 | **Optional** | Wall switch (manual override) | $1-2 |
 
 **Total Cost:** ~$15-20 (vs $50+ commercial solutions)
-"Total power consumption: ~0.5–1W (very low, suitable for 24/7 operation)."
+**Total power consumption:** ~0.5–1W (very low, suitable for 24/7 operation)
 
 ### Wiring Diagram
 
