@@ -29,6 +29,48 @@ Short animated demo showing real-time entry/exit detection in the bathroom.
 
 ---
 
+## 🚀 Quick Start: Pre-compiled Firmware (No Compilation Needed!)
+
+If you don't want to install ESPHome or compile from source, download the ready-to-flash binary from the latest release!
+
+### Download & Flash
+
+1. Go to the **[Releases page](https://github.com/gomgom-40/RD-03_presence_radar/releases/latest)**
+2. Download the file: `rd03_presence_radar_v1.0.0.bin` (or the latest version)
+
+### Recommended Flashing Tools (Beginner-Friendly)
+
+- **ESPHome Flasher** (Windows/Mac/Linux – easiest for most users):  
+  Download from: https://github.com/esphome/esphome-flasher/releases  
+  - Connect your ESP32 via USB  
+  - Select the .bin file  
+  - Choose the correct COM port  
+  - Click **Flash** → Done in ~30 seconds!
+
+- **Web Installer** (Browser-based, no software install – if your browser supports Web Serial):  
+  Use ESP Web Tools: https://esphome.github.io/esp-web-tools/  
+  (Note: For ESP32, you may need to merge binaries first if using advanced features – stick to ESPHome Flasher for simplicity.)
+
+- **Command Line (Advanced users)**:
+  ```bash
+  # Install esptool if needed
+  pip install esptool
+
+  # First time? Erase flash (recommended)
+  esptool.py --port COMX erase_flash   # Replace COMX with your port (e.g. COM3 or /dev/ttyUSB0)
+
+  # Flash the binary
+  esptool.py --port COMX --baud 460800 write_flash 0x0 rd03_presence_radar_v1.0.0.bin
+  
+Important Notes:
+
+First flash on a new ESP32? Always erase flash first to avoid issues.
+After flashing, the device will create its own Wi-Fi AP (RD03-XXXX) for initial setup if not pre-configured.
+WiFi credentials are hardcoded in this binary – edit the YAML and re-compile for custom SSID/password in future updates.
+Check the release notes for any specific instructions or known issues.
+
+This makes trying the project super easy – just flash and add to Home Assistant!
+
 ## 🛠️ Hardware Requirements
 
 ### Required Components
