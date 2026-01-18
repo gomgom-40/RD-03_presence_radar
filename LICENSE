@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2025 Mohamed Eid
+Copyright (c) 2025 gomgom-40
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Additional Notes
+
+This project uses the RD-03 radar sensor manufactured by Ai-Thinker.
+The hardware is subject to the manufacturer's own terms and conditions.
+
+This software is provided as-is for educational and personal use.
+The author is not responsible for any damage to hardware or property
+resulting from the use of this code.
+
+Always test in a controlled environment before deploying to production.
