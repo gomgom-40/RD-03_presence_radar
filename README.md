@@ -35,7 +35,7 @@ If you don't want to install ESPHome or compile from source, download the ready-
 
 ### Download & Flash
 
-1. Go to the **[Releases page](https://github.com/gomgom-40/RD-03_presence_radar/releases/latest)** (or the latest version)
+1. Go to the **[Releases page](https://github.com/gomgom-40/RD-03_presence_radar/releases/latest)** (choose the latest version)
 2. Download the file: **[rd03_presence_radar_v1.0.0.bin](https://github.com/gomgom-40/RD-03_presence_radar/releases/download/v1.0.0/rd03_presence_radar_v1.0.0.bin)** (direct download) 
 
 ### Recommended Flashing Tools (Beginner-Friendly)
