@@ -23,7 +23,7 @@ This project converts the basic **Ai-Thinker RD-03** (24GHz mmWave radar) from a
 
 ## 🎥 Demo
 
-![RD-03 Smart Presence Radar Demo]([https://raw.githubusercontent.com/gomgom-40/RD-03_presence_radar/main/demo/rd03_presence_demo.gif](https://github.com/gomgom-40/RD-03_presence_radar/blob/246719f704e742c744e2f7327a2893a2efc2d03d/rd03_presence_demo.gif))
+![RD-03 Smart Presence Radar Demo](https://raw.githubusercontent.com/gomgom-40/RD-03_presence_radar/main/rd03_presence_demo.gif)
 
 Short animated demo showing real-time entry/exit detection in the bathroom.
 
