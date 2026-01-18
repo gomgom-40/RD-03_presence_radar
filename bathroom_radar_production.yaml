@@ -1,0 +1,654 @@
+# =============================================================================
+# Bathroom Radar RD-03 ESPHome Configuration
+# Smart presence detection system with radar sensor and automated lighting control
+# =============================================================================
+
+# =============================================================================
+# ESPHome Core Configuration
+# =============================================================================
+esphome:
+  name: bathroomradar
+  friendly_name: Bathroom Radar RD-03
+
+  # Boot sequence - Initialize radar sensor
+  on_boot:
+    # High priority: Initialize radar hardware
+    - priority: -100
+      then:
+        - delay: 3s
+        - uart.write:
+            id: radar_uart
+            data: [0xFD,0xFC,0xFB,0xFA,0x04,0x00,0x01,0x00,0x01,0x00,0x04,0x03,0x02,0x01]
+        - delay: 100ms
+        - uart.write:
+            id: radar_uart
+            data: [0xFD,0xFC,0xFB,0xFA,0x02,0x00,0x00,0x01,0x04,0x03,0x02,0x01]
+
+    # Normal priority: Log ready state
+    - priority: 200
+      then:
+        - lambda: |-
+            id(radar_last_ms) = millis();
+            id(p_timestamp_str) = std::string("Never");
+            ESP_LOGI("boot", "Bathroom Radar RD-03 – Ready");
+
+# =============================================================================
+# Hardware Configuration
+# =============================================================================
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+# UART Configuration for Radar Communication
+uart:
+  id: radar_uart
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 115200
+  rx_buffer_size: 256
+
+# =============================================================================
+# Network & Connectivity Configuration
+# =============================================================================
+wifi:
+  power_save_mode: none
+  fast_connect: true
+  ssid: "YOUR SSID"
+  password: "YOUR PASSWORD"
+
+  # Fallback AP for configuration
+  ap:
+    ssid: "BathroomRadar-Setup"
+    password: "YOUR PASSWORD"
+
+# Remote access and updates
+api:
+  reboot_timeout: 15min
+
+ota:
+  platform: esphome
+
+# Web interface for configuration
+captive_portal:
+
+# Logging level
+logger:
+  level: INFO
+
+# =============================================================================
+# Time Configuration
+# =============================================================================
+time:
+  # Primary NTP time source
+  - platform: sntp
+    id: sntp_time
+    timezone: "Africa/Cairo"
+    servers:
+      - "pool.ntp.org"
+      - "time.google.com"
+    on_time_sync:
+      - component.update: presence_timestamp
+
+  # Home Assistant time sync
+  - platform: homeassistant
+    id: ha_time
+
+# =============================================================================
+# Global Variables (System State & Configuration)
+# =============================================================================
+globals:
+  # ===========================================================================
+  # Configuration Variables (Persistent)
+  # ===========================================================================
+  - id: min_range_var
+    type: float
+    initial_value: "20.0"
+    restore_value: yes
+
+  - id: max_range_var
+    type: float
+    initial_value: "500.0"
+    restore_value: yes
+
+  - id: max_absence_var
+    type: int
+    initial_value: "300"
+    restore_value: yes
+
+  - id: sensitivity_var
+    type: int
+    initial_value: "3"
+    restore_value: yes
+
+  # ===========================================================================
+  # Status & Timestamp Variables (Runtime only)
+  # ===========================================================================
+  - id: p_timestamp_str
+    type: std::string
+    initial_value: std::string("Never")
+    restore_value: no
+
+  - id: radar_last_ms
+    type: unsigned long
+    initial_value: "0"
+    restore_value: no
+
+  - id: last_publish_ms
+    type: unsigned long
+    initial_value: "0"
+    restore_value: no
+
+  - id: watchdog_activity_ms
+    type: unsigned long
+    initial_value: "0"
+    restore_value: no
+
+  # ===========================================================================
+  # Control State Variables (Runtime only)
+  # ===========================================================================
+  - id: force_on_latched
+    type: bool
+    initial_value: "false"
+    restore_value: no
+
+  - id: force_off_latched
+    type: bool
+    initial_value: "false"
+    restore_value: no
+
+  # ===========================================================================
+  # Presence Detection Variables (Runtime only)
+  # ===========================================================================
+  - id: last_activity_ms
+    type: unsigned long
+    initial_value: "0"
+    restore_value: no
+
+  - id: presence_active
+    type: bool
+    initial_value: "false"
+    restore_value: no
+
+  - id: no_target_since
+    type: unsigned long
+    initial_value: "0"
+    restore_value: no
+
+  # ===========================================================================
+  # UART Communication Variables (Runtime only)
+  # ===========================================================================
+  - id: uart_buffer
+    type: std::vector<uint8_t>
+    restore_value: no
+
+  - id: last_byte_ms
+    type: unsigned long
+    initial_value: "0"
+    restore_value: no
+
+  - id: manual_off_recent
+    type: bool
+    initial_value: "false"
+    restore_value: no
+
+# =============================================================================
+# Scripts (Automated Sequences)
+# =============================================================================
+script:
+  # Radar reset sequence for recovery
+  - id: reset_radar_cmd
+    mode: restart
+    then:
+      - uart.write:
+          id: radar_uart
+          data: [0xFD,0xFC,0xFB,0xFA,0x04,0x00,0x01,0x00,0x01,0x00,0x04,0x03,0x02,0x01]
+      - delay: 100ms
+      - uart.write:
+          id: radar_uart
+          data: [0xFD,0xFC,0xFB,0xFA,0x02,0x00,0x00,0x01,0x04,0x03,0x02,0x01]
+
+# =============================================================================
+# Configuration Controls (User-adjustable settings)
+# =============================================================================
+number:
+  # Detection range controls
+  - platform: template
+    name: "Minimum Range (cm)"
+    id: min_range
+    min_value: 10
+    max_value: 300
+    step: 10
+    unit_of_measurement: cm
+    optimistic: true
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(min_range_var) = x;
+
+  - platform: template
+    name: "Maximum Range (cm)"
+    id: max_range
+    min_value: 50
+    max_value: 600
+    step: 10
+    unit_of_measurement: cm
+    optimistic: true
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(max_range_var) = x;
+
+  # Sensitivity controls
+  - platform: template
+    name: "Activity Level (1=Sensitive→5=Relaxed)"
+    id: sensitivity_level
+    min_value: 1
+    max_value: 5
+    step: 1
+    optimistic: true
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(sensitivity_var) = (int)x;
+
+  # Timeout controls
+  - platform: template
+    name: "Maximum Absence Time (minutes)"
+    id: max_absence
+    min_value: 1
+    max_value: 120
+    step: 1
+    unit_of_measurement: min
+    optimistic: true
+    restore_value: true
+    set_action:
+      - lambda: |-
+          id(max_absence_var) = (int)x * 60;
+
+# =============================================================================
+# Control Switches (Manual override controls)
+# =============================================================================
+switch:
+  # Force light ON (overrides all automation)
+  - platform: template
+    name: "Bathroom Light Force ON"
+    id: light_override
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: |-
+          id(force_on_latched) = true;
+          id(force_off_latched) = false;
+          id(presence_active) = false;
+          id(relay_light).turn_on();
+          id(force_off).publish_state(false);
+          id(light_override).publish_state(true);
+    turn_off_action:
+      - lambda: |-
+          id(force_on_latched) = false;
+          id(light_override).publish_state(false);
+          if (id(wall_switch_manual).state) id(relay_light).turn_on();
+
+  # Force light OFF (overrides all automation)
+  - platform: template
+    name: "Bathroom Light Force OFF"
+    id: force_off
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: |-
+          id(force_off_latched) = true;
+          id(force_on_latched) = false;
+          id(presence_active) = false;
+          id(relay_light).turn_off();
+          id(light_override).publish_state(false);
+          id(force_off).publish_state(true);
+    turn_off_action:
+      - lambda: |-
+          id(force_off_latched) = false;
+          id(force_off).publish_state(false);
+          if (id(wall_switch_manual).state) id(relay_light).turn_on();
+
+  # Main bathroom light relay
+  - platform: gpio
+    name: "نور الحمام"
+    id: relay_light
+    pin: GPIO19
+    restore_mode: RESTORE_DEFAULT_OFF
+
+    # Track activity when turning on (if not forced/manual)
+    on_turn_on:
+      - lambda: |-
+          if (!id(force_on_latched) && !id(force_off_latched) && !id(wall_switch_manual).state) {
+            id(last_activity_ms) = millis();
+            id(no_target_since) = 0;
+            id(presence_active) = false;
+          }
+
+    # Handle manual turn off and reset state
+    on_turn_off:
+      - lambda: |-
+          id(manual_off_recent) = true;  // Flag for manual override reset
+          id(relay_light).turn_off();
+          id(last_activity_ms) = 0;
+          id(presence_active) = false;
+
+# =============================================================================
+# Text Sensors (Data processing and status)
+# =============================================================================
+text_sensor:
+  # Raw radar message processor
+  - platform: template
+    name: "Radar Raw Message"
+    id: radar_msg
+    internal: true
+    update_interval: 30ms
+    lambda: |-
+      // UART buffer management constants
+      const unsigned long STALE_TIMEOUT_MS = 100;
+      const size_t MAX_BUFFER_SIZE = 256;
+
+      uint8_t byte;
+      bool new_line_found = false;
+
+      // Read available bytes from UART
+      while (id(radar_uart).available() && id(uart_buffer).size() < MAX_BUFFER_SIZE) {
+        if (id(radar_uart).read_byte(&byte)) {
+          unsigned long now = millis();
+
+          // Clear stale data if timeout exceeded
+          if (id(last_byte_ms) && (now - id(last_byte_ms) > STALE_TIMEOUT_MS)) {
+            id(uart_buffer).clear();
+          }
+
+          id(last_byte_ms) = now;
+          id(uart_buffer).push_back(byte);
+
+          if (byte == '\n') {
+            new_line_found = true;
+            break;
+          }
+        }
+      }
+
+      // Process complete line when newline found
+      if (new_line_found) {
+        std::string line(id(uart_buffer).begin(), id(uart_buffer).end());
+        id(uart_buffer).clear();
+
+        // Trim whitespace
+        size_t start = line.find_first_not_of(" \t\r\n");
+        if (start != std::string::npos) {
+          size_t end = line.find_last_not_of(" \t\r\n");
+          line = line.substr(start, end - start + 1);
+          line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+
+          if (!line.empty()) {
+            id(radar_last_ms) = millis();
+            id(watchdog_activity_ms) = millis();
+            return line;
+          }
+        }
+      }
+
+      // Buffer overflow protection
+      if (id(uart_buffer).size() >= MAX_BUFFER_SIZE) {
+        id(uart_buffer).clear();
+        ESP_LOGW("uart", "Buffer cleared - size exceeded");
+      }
+
+      // Clear stale buffer after long inactivity
+      if (id(last_byte_ms) && (millis() - id(last_byte_ms) > 30000) && !id(uart_buffer).empty()) {
+        id(uart_buffer).clear();
+      }
+
+      return {};
+
+  # Presence timestamp display
+  - platform: template
+    name: "Last Presence Timestamp"
+    id: presence_timestamp
+    internal: true
+    update_interval: 1s
+    lambda: |-
+      return id(p_timestamp_str);
+
+  # System diagnostics
+  - platform: template
+    name: "Diagnostics"
+    update_interval: 60s
+    lambda: |-
+      const char* radar_status = (millis() - id(radar_last_ms) < 10000) ? "OK" : "ERROR";
+      char buffer[32];
+      snprintf(buffer, sizeof(buffer), "Radar: %s", radar_status);
+      return {buffer};
+
+# =============================================================================
+# Numeric Sensors (Distance measurement and processing)
+# =============================================================================
+sensor:
+  # Target distance processing with motion detection
+  - platform: template
+    name: "Target Distance"
+    id: target_distance
+    unit_of_measurement: cm
+    accuracy_decimals: 0
+    update_interval: 45ms
+    lambda: |-
+      // Static variables for motion detection algorithm
+      static float last_valid_dist = 0.0f;
+      static float last_dist_for_motion = 0.0f;
+      static uint8_t motion_hits = 0;
+
+      // Motion detection parameters
+      const uint8_t MOTION_HITS_REQUIRED = 1;      // Single change triggers motion
+      const float MOTION_CHANGE_THRESHOLD = 2.0f;  // 2cm minimum change
+
+      uint32_t now = millis();
+
+      // Reset state after manual light turn off
+      if (id(manual_off_recent)) {
+        last_valid_dist = 0.0f;        // Reset last valid distance
+        id(no_target_since) = now;     // Mark as no target now
+        id(manual_off_recent) = false; // Clear manual flag
+      }
+
+      // Distance extraction function
+      auto get_distance = [&]() -> float {
+        if (!id(radar_msg).has_state()) return 0.0f;
+
+        const std::string &msg = id(radar_msg).state;
+
+        // Check if message starts with "Range "
+        if (msg.rfind("Range ", 0) != 0) return 0.0f;
+
+        // Find first numeric character
+        size_t pos = msg.find_first_of("0123456789");
+        if (pos == std::string::npos) return 0.0f;
+
+        // Convert string to float
+        const char* s = msg.c_str() + pos;
+        char* endptr = nullptr;
+        float dist = strtof(s, &endptr);
+
+        return (endptr != s) ? dist : 0.0f;
+      };
+
+      float dist = get_distance();
+
+      // Validate distance reading
+      bool dist_valid =
+        (dist >= id(min_range_var) && dist <= id(max_range_var)) &&
+        !(last_valid_dist > 100.0f && dist < 10.0f);  // Prevent false readings
+
+      bool is_presence_active = id(presence_active);
+
+      // =======================================================================
+      // ENTRY LOGIC: Only when presence is NOT active (false)
+      // =======================================================================
+      if (!is_presence_active) {
+        if (dist_valid) {
+          // Check for significant distance change (motion)
+          if (last_dist_for_motion == 0.0f ||
+              fabs(dist - last_dist_for_motion) >= MOTION_CHANGE_THRESHOLD) {
+            motion_hits++;
+            last_dist_for_motion = dist;
+          }
+
+          // Activate presence when motion threshold reached
+          if (motion_hits >= MOTION_HITS_REQUIRED) {
+            id(presence_active) = true;
+            id(last_activity_ms) = now;
+            id(no_target_since) = 0;
+            motion_hits = 0;
+            ESP_LOGI("radar", "Motion detected - Presence activated");
+          }
+        } else {
+          // Reset motion detection on invalid readings
+          motion_hits = 0;
+          last_dist_for_motion = 0.0f;
+        }
+      }
+      // =======================================================================
+      // MAINTENANCE LOGIC: When presence is already active (true)
+      // =======================================================================
+      else {
+        if (dist_valid) {
+          last_valid_dist = dist;
+          id(no_target_since) = 0;  // Reset no-target timer
+
+          // Update activity timestamp only if not manually controlled
+          if (!id(wall_switch_manual).state && !id(force_on_latched) && !id(force_off_latched)) {
+            id(last_activity_ms) = now;
+          }
+        } else {
+          // Start counting time without target
+          if (id(no_target_since) == 0) {
+            id(no_target_since) = now;
+          }
+        }
+      }
+
+      // =======================================================================
+      // PUBLISHING LOGIC: Control update frequency
+      // =======================================================================
+
+      // Rate limiting: Don't publish too frequently
+      if (now - id(last_publish_ms) < 40) {
+        return last_valid_dist;
+      }
+
+      id(last_publish_ms) = now;
+
+      // Return 0 if no valid target for extended period
+      if (id(no_target_since) && (now - id(no_target_since) > 10000)) {
+        return 0.0f;
+      }
+
+      return last_valid_dist;
+
+# =============================================================================
+# Binary Sensors (Presence detection and manual controls)
+# =============================================================================
+binary_sensor:
+  # Wall-mounted manual switch
+  - platform: gpio
+    pin:
+      number: GPIO18
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Wall Switch Manual"
+    id: wall_switch_manual
+    device_class: power
+    filters:
+      - delayed_on: 0.5s   # Debounce on
+      - delayed_off: 1.0s  # Debounce off
+
+  # Smart presence detection with automated light control
+  - platform: template
+    name: "Smart Presence"
+    id: smart_presence
+    device_class: occupancy
+    lambda: |-
+      uint32_t now = millis();
+      uint32_t silent_ms = now - id(watchdog_activity_ms);
+
+      // =======================================================================
+      // WATCHDOG PROTECTION: Monitor radar activity
+      // =======================================================================
+
+      // Soft recovery: Reset radar after 90-180 seconds of silence
+      if (id(watchdog_activity_ms) && silent_ms > 90000 && silent_ms < 180000) {
+        id(uart_buffer).clear();
+        id(reset_radar_cmd).execute();
+      }
+
+      // Hard recovery: Restart ESP after 12 hours of silence
+      if (id(watchdog_activity_ms) && silent_ms >= 43200000UL) {
+        ESP_LOGW("watchdog", "Long silence detected - restarting ESP");
+        esp_restart();
+      }
+
+      // =======================================================================
+      // FORCE CONTROLS: Override all automation
+      // =======================================================================
+
+      if (id(force_off_latched)) {
+        id(relay_light).turn_off();
+        id(p_timestamp_str) = "Force OFF";
+        return false;
+      }
+
+      if (id(force_on_latched)) {
+        id(relay_light).turn_on();
+        id(p_timestamp_str) = "Force ON";
+        return true;
+      }
+
+      // =======================================================================
+      // MANUAL CONTROL: Wall switch takes precedence
+      // =======================================================================
+
+      if (id(wall_switch_manual).state) {
+        id(relay_light).turn_on();
+        id(p_timestamp_str) = "Manual ON (Always)";
+        return true;
+      }
+
+      // =======================================================================
+      // AUTOMATIC PRESENCE DETECTION LOGIC
+      // =======================================================================
+
+      uint32_t elapsed = now - id(last_activity_ms);
+
+      // FAST EXIT: Turn off quickly when no target detected for 15 seconds
+      const uint32_t FAST_EXIT_TIMEOUT = 15000UL;  // 15 seconds
+      if (id(presence_active) && id(no_target_since) &&
+          (now - id(no_target_since) > FAST_EXIT_TIMEOUT)) {
+        id(relay_light).turn_off();
+        id(p_timestamp_str) = "Fast OFF (No Target)";
+        id(presence_active) = false;
+        return false;
+      }
+
+      // HOLD TIME: Keep light on based on sensitivity setting
+      uint32_t hold_ms = id(sensitivity_var) * 10000UL;  // 10-50 seconds based on sensitivity
+      if (elapsed < hold_ms) {
+        id(relay_light).turn_on();
+        id(p_timestamp_str) = "Auto ON";
+        return true;
+      }
+
+      // SAFETY TIMEOUT: Force off after maximum absence time
+      if (elapsed > id(max_absence_var) * 1000UL) {
+        id(relay_light).turn_off();
+        id(p_timestamp_str) = "Safety Auto OFF";
+        id(presence_active) = false;
+        return false;
+      }
+
+      // DEFAULT: Turn off light
+      id(relay_light).turn_off();
+      id(p_timestamp_str) = "Auto OFF";
+      return false;
