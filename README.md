@@ -3,6 +3,8 @@
 [![ESPHome](https://img.shields.io/badge/ESPHome-Compatible-blue.svg)](https://esphome.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Made in Egypt](https://img.shields.io/badge/Made%20in-Egypt%20🇪🇬-green.svg)](https://github.com/gomgom-40)
+[![Arduino Library](https://www.ardu-badge.com/badge/RD03Radar.svg)](https://www.ardu-badge.com/RD03Radar)
+[![GitHub release](https://img.shields.io/github/release/gomgom-40/RD03Radar.svg)](https://github.com/gomgom-40/RD03Radar/releases)
 
 > Transform a cheap RD-03 radar sensor into an intelligent presence detection system with automated lighting control
 
@@ -132,6 +134,47 @@ pip3 install esphome
 
 # Compile and upload
 esphome run bathroom_radar_production.yaml
+```
+
+### Arduino IDE 
+
+1. Open **Arduino IDE**
+2. Go to **Sketch** → **Include Library** → **Manage Libraries**
+3. Search for **"RD03Radar"**
+4. Click **Install**
+5. Done! ✅
+
+### Manual Installation
+
+Download the latest release from [GitHub Releases](https://github.com/gomgom-40/RD03Radar/releases)
+
+### PlatformIO
+```ini
+lib_deps = 
+    gomgom-40/RD03Radar@^1.0.0
+```
+
+## 🎓 Quick Start
+```cpp
+#include 
+
+RD03Radar radar(RX_PIN, TX_PIN);
+
+void setup() {
+  Serial.begin(115200);
+  radar.begin();
+}
+
+void loop() {
+  if (radar.targetDetected()) {
+    Serial.println("Presence detected!");
+    float distance = radar.getDistance();
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm");
+  }
+  delay(100);
+}
 ```
 
 ---
