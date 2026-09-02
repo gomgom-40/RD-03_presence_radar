@@ -2,7 +2,7 @@
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-Compatible-blue.svg)](https://esphome.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Made in Egypt](https://img.shields.io/badge/Made%20in-Egypt%20🇪🇬-green.svg)](https://github.com/gomgom-40)
+[![Made in Egypt](https://img.shields.io/badge/For%20More-Inf%20🇪🇬-green.svg)](https://github.com/gomgom-40)
 [![Arduino Library](https://www.ardu-badge.com/badge/RD03Radar.svg)](https://www.ardu-badge.com/RD03Radar)
 [![GitHub release](https://img.shields.io/github/release/gomgom-40/RD03Radar.svg)](https://github.com/gomgom-40/RD03Radar/releases)
 
